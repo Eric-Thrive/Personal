@@ -415,13 +415,15 @@
   function loadGameFromURL() {
     const params = new URLSearchParams(window.location.search);
     const encodedData = params.get('gamedata');
-    // The cache-busting parameter (e.g., 'v' or 'ts') is not used by this function,
-    // its presence in the URL is enough to help bypass browser/CDN caches for the page itself.
 
     if (encodedData) {
         console.log("https://www.merriam-webster.com/dictionary/load Found 'gamedata' parameter.");
         try {
-            const decodedDataString = atob(decodeURIComponent(encodedData));
+            // Decode the URI component first, then decode from Base64
+            // Then, convert from UTF-8 percent-encoding back to original string
+            const base64Decoded = atob(decodeURIComponent(encodedData));
+            const decodedDataString = decodeURIComponent(escape(base64Decoded)); // escape() is deprecated but used in this pattern with atob/btoa for UTF-8
+            
             const loadedGameData = JSON.parse(decodedDataString);
             console.log("https://www.merriam-webster.com/dictionary/load Decoded and parsed data:", loadedGameData);
 
@@ -615,11 +617,16 @@
     }
     try {
         const gameDataString = JSON.stringify(gameData);
-        const encodedData = encodeURIComponent(btoa(gameDataString));
+        // Encode for UTF-8 compatibility with btoa:
+        // 1. encodeURIComponent to handle multi-byte chars (like smart quotes, emojis) into percent-encoding
+        // 2. unescape to convert percent-encodings into a "binary" string that btoa can handle
+        const utf8CompatibleString = unescape(encodeURIComponent(gameDataString));
+        const base64Encoded = btoa(utf8CompatibleString);
+        // URI encode the Base64 string to make it safe for URL query parameters
+        const encodedDataForURL = encodeURIComponent(base64Encoded);
+
         const timestamp = Date.now(); // Cache-busting timestamp
-        // Append timestamp as a new parameter.
-        // Ensure the first parameter after '?' is 'gamedata', subsequent ones use '&'.
-        const shareURL = `${window.location.origin}${window.location.pathname}?gamedata=${encodedData}&v=${timestamp}`;
+        const shareURL = `${window.location.origin}${window.location.pathname}?gamedata=${encodedDataForURL}&v=${timestamp}`;
 
         shareLinkInput.value = shareURL;
         shareLinkContainer.style.display = 'flex';
@@ -635,16 +642,14 @@
 
   copyLinkBtn.addEventListener('click', function() {
     if (shareLinkInput.value) {
-        // Attempt to use navigator.clipboard first
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(shareLinkInput.value)
                 .then(() => showMessage("Link copied to clipboard!", "success", 2000))
                 .catch(err => {
                     console.error("[Copy Link] navigator.clipboard error:", err);
-                    // Fallback for environments where navigator.clipboard might fail (e.g. insecure contexts, some iframes)
                     try {
-                        shareLinkInput.select(); // Select the text
-                        document.execCommand('copy'); // Legacy copy command
+                        shareLinkInput.select();
+                        document.execCommand('copy');
                         showMessage("Link copied (fallback method)!", "success", 2000);
                     } catch (execErr) {
                         console.error("[Copy Link] document.execCommand error:", execErr);
@@ -652,7 +657,6 @@
                     }
                 });
         } else {
-             // Fallback for older browsers or environments without navigator.clipboard
             try {
                 shareLinkInput.select();
                 document.execCommand('copy');
@@ -934,5 +938,3 @@
 </script>
 </body>
 </html>
-
-
