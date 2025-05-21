@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Word Sorting Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script> <style>
+    /* Basic body styling for layout and font */
+    body {
+      font-family: 'Inter', sans-serif; /* Modern sans-serif font */
+      margin: 0;
+      padding: 1rem;
+      background: #f0f2f5; /* Light grey background */
+      color: #333; /* Default text color */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh; /* Ensure body takes at least full viewport height */
+      box-sizing: border-box; /* Consistent box model */
+    }
+
+    /* Main heading style */
+    h1 {
+      text-align: center;
+      color: #2c3e50; /* Dark blue-grey for heading */
+      margin-bottom: 1rem;
+    }
+
+    /* Styling for the upload and configuration section */
+    #uploadSection {
+      width: 100%;
+      max-width: 800px; /* Max width for larger screens */
+      margin-bottom: 1.5rem;
+      background: #fff; /* White background for the section */
+      border-radius: 12px; /* Rounded corners */
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); /* Subtle shadow */
+      padding: 1rem 1.5rem;
+      box-sizing: border-box;
+    }
+
+    #uploadSection label {
+      font-weight: 500; /* Medium font weight for labels */
+      color: #2c3e50;
+      display: block; /* Make labels block for better spacing */
+      margin-bottom: 0.25rem;
+    }
+
+    /* Styling for category editor text inputs */
+    #categoriesEditor input[type="text"] {
+      margin-right: 0.5rem;
+      margin-bottom: 0.3rem;
+      font-size: 1rem;
+      border: 1px solid #a5b4fc; /* Light indigo border */
+      border-radius: 4px;
+      padding: 0.2rem 0.4rem;
+    }
+    #categoriesEditor > div { /* Wrapper for each key-label pair */
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.4rem;
+    }
+
+
+    /* Progress tracker styling */
+    .progress-tracker {
+      font-weight: 600; /* Bold font for emphasis */
+      margin-bottom: 1.2rem;
+      color: #4338ca; /* Indigo color for progress */
+    }
+
+    /* General button styling */
+    .reset-btn, .action-btn {
+      background: #6366f1; /* Indigo background */
+      color: #fff; /* White text */
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      /* margin-bottom: 1.5rem; Default margin, can be overridden */
+      transition: background 0.2s, box-shadow 0.2s; /* Smooth transitions */
+      margin-right: 0.5rem; /* Add some spacing between buttons */
+    }
+     .reset-btn:last-of-type, .action-btn:last-of-type { /* Remove margin from last button in a group */
+        margin-right: 0;
+    }
+
+
+    .reset-btn:hover, .action-btn:hover {
+      background: #4f46e5; /* Darker indigo on hover */
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15); /* Slight shadow lift on hover */
+    }
+
+    /* Specific button margins */
+    #loadExampleBtn { margin-left:0; margin-bottom:0.8rem; }
+    #startGameBtn { margin-top:0.8rem; margin-bottom:0; }
+    #resetButton, #generateShareLinkBtn { margin-bottom: 0.5rem; } /* Group these buttons */
+
+
+    /* Share Link specific styles */
+    #shareLinkContainer {
+        margin-top: 0.5rem; /* Reduced top margin */
+        margin-bottom: 1rem;
+        width: 100%;
+        max-width: 800px;
+        display: flex;
+        align-items: center;
+        box-sizing: border-box;
+    }
+    #shareLinkInput {
+        flex-grow: 1;
+        padding: 0.5rem;
+        border-radius: 6px;
+        border: 1px solid #cbd5e1; /* Tailwind gray-300 */
+        font-size: 0.9rem;
+        margin-right: 0.5rem;
+        box-sizing: border-box;
+    }
+    #copyLinkBtn {
+        padding: 0.5rem 1rem;
+        background-color: #2563eb; /* Tailwind blue-600 */
+        color: white;
+        /* Inherits .action-btn styles, so only override what's needed */
+    }
+    #copyLinkBtn:hover {
+        background-color: #1d4ed8; /* Tailwind blue-700 */
+    }
+
+
+    /* Container for the draggable word tiles */
+    .tiles-container {
+      display: flex;
+      justify-content: center; /* Center tiles */
+      flex-wrap: wrap; /* Allow tiles to wrap to next line */
+      gap: 0.8rem; /* Space between tiles */
+      margin-bottom: 2rem;
+      padding: 1rem;
+      background: #ffffff; /* White background */
+      border-radius: 12px; /* Rounded corners */
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* More pronounced shadow */
+      width: 100%;
+      max-width: 800px;
+      box-sizing: border-box;
+    }
+
+    /* Individual draggable tile styling */
+    .tile {
+      background: #e0e7ff; /* Light indigo background for tiles */
+      border: 2px solid #6366f1; /* Indigo border */
+      color: #3730a3; /* Darker indigo text for contrast */
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      font-size: 1rem;
+      font-weight: 500;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Subtle shadow */
+      cursor: grab; /* Indicates draggable item */
+      touch-action: none; /* Important for preventing default touch behaviors like scrolling */
+      user-select: none; /* Prevent text selection during drag */
+      transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      text-align: center;
+      min-width: 80px; /* Minimum width for tiles */
+    }
+
+    .tile:hover {
+      background-color: #c7d2fe; /* Slightly darker on hover */
+      border-color: #4f46e5;
+    }
+
+    /* Styling for a tile while it's being dragged */
+    .tile.dragging {
+      opacity: 0.6; /* Make it semi-transparent */
+      border-style: dashed;
+      transform: scale(1.05); /* Slightly enlarge */
+      box-shadow: 0 8px 16px rgba(0,0,0,0.15); /* Larger shadow for depth */
+      cursor: grabbing; /* Change cursor during drag */
+    }
+
+    /* Focus style for accessibility */
+    .tile:focus {
+      outline: 2px solid #4f46e5; /* Clear focus indicator */
+    }
+
+    /* Container for the category drop zones */
+    .categories-container {
+      display: flex;
+      justify-content: space-around; /* Distribute categories evenly */
+      gap: 1.5rem; /* Space between categories */
+      margin-bottom: 2rem;
+      width: 100%;
+      max-width: 800px;
+      flex-wrap: nowrap; /* Categories should stay in a row on larger screens */
+      box-sizing: border-box;
+    }
+
+    /* Individual category drop zone styling */
+    .category {
+      background: #ffffff;
+      border: 2px dashed #a5b4fc; /* Dashed border to indicate drop zone */
+      border-radius: 12px;
+      padding: 1rem;
+      min-width: 150px; /* Minimum width for a category box */
+      width: 30%; /* Relative width */
+      min-height: 250px; /* Minimum height to accommodate tiles */
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: background 0.2s, border-color 0.2s;
+      overflow-y: auto; /* Allow scrolling if many tiles are added */
+      position: relative; /* For category title positioning */
+    }
+
+    /* Styling for a category when a tile is dragged over it */
+    .category.dragover {
+      background: #e0e7ff; /* Highlight background */
+      border-color: #6366f1; /* Solid border highlight */
+    }
+
+     /* Focus style for accessibility */
+    .category:focus {
+      outline: 2px dashed #6366f1;
+    }
+
+    /* Category title styling */
+    .category-title {
+      font-weight: bold;
+      font-size: 1.1rem;
+      color: #4338ca; /* Indigo text */
+      margin-bottom: 1rem;
+      text-align: center;
+      word-break: break-word; /* Prevent long titles from breaking layout */
+      padding: 0.5rem;
+      background-color: #c7d2fe; /* Lighter indigo background for title bar */
+      width: calc(100% + 2rem); /* Full width of parent, accounting for padding */
+      margin-left: -1rem; /* Offset padding */
+      margin-right: -1rem; /* Offset padding */
+      margin-top: -1rem; /* Offset padding to be at the very top */
+      border-top-left-radius: 10px; /* Match parent's border radius */
+      border-top-right-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    /* Styling for tiles that have been successfully sorted into a category */
+    .category .tile {
+      background: #a5b4fc; /* Different background for sorted tiles */
+      border-color: #4f46e5;
+      color: #312e81; /* Darker text for sorted tiles */
+      cursor: default; /* No longer draggable by default once sorted */
+      margin-bottom: 0.5rem;
+      width: 90%; /* Make tiles slightly narrower than category */
+      box-sizing: border-box;
+    }
+    .category .tile.dragging { /* Ensure dragging style applies even if sorted, for touch re-drag */
+        cursor: grabbing;
+    }
+
+
+    /* Message area for feedback (e.g., "Correct!", "Game Over!") */
+    .message-area {
+      position: fixed; /* Fixed position at the bottom of the viewport */
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%); /* Center horizontally */
+      background-color: #2c3e50; /* Dark background */
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 1000; /* Ensure it's above other elements */
+      opacity: 0; /* Hidden by default */
+      transition: opacity 0.5s ease-in-out;
+      font-size: 0.9rem;
+    }
+
+    .message-area.show {
+      opacity: 1; /* Visible */
+    }
+
+    .message-area.success {
+      background-color: #2ecc71; /* Green for success messages */
+    }
+
+    .message-area.error {
+      background-color: #e74c3c; /* Red for error messages */
+    }
+
+    /* Responsive adjustments for medium-sized screens (tablets) */
+    @media (max-width: 768px) {
+      body { padding: 1rem; }
+      h1 { font-size: 1.5rem; margin-bottom: 0.8rem;}
+      .progress-tracker { margin-bottom: 1rem; }
+      .tiles-container {
+        gap: 0.6rem;
+        padding: 0.8rem;
+        margin-bottom: 1.5rem;
+      }
+      .tile {
+        padding: 0.5rem 0.8rem;
+        font-size: 0.9rem;
+      }
+      .categories-container {
+        flex-direction: column; /* Stack categories vertically */
+        align-items: center; /* Center them */
+        gap: 1rem;
+      }
+      .category {
+        min-width: 80vw; /* Make categories wider on smaller screens */
+        max-width: 90vw;
+        min-height: 180px; /* Reduce min-height */
+        width: 100%; /* Take full available width within constraints */
+      }
+      .category-title { font-size: 1rem; }
+      #uploadSection { padding: 1rem; }
+      .reset-btn, .action-btn { font-size: 0.9rem; padding: 0.5rem 1rem;}
+      #shareLinkContainer { flex-direction: column; gap: 0.5rem; }
+      #shareLinkInput { width: 100%; margin-right: 0; }
+      #copyLinkBtn { width: 100%; }
+      .button-group { /* Container for Reset and Share Link buttons */
+        display: flex;
+        flex-wrap: wrap; /* Allow buttons to wrap on small screens */
+        justify-content: center;
+        gap: 0.5rem; /* Space between buttons */
+        margin-bottom: 1rem;
+      }
+    }
+
+    /* Responsive adjustments for small screens (mobiles) */
+    @media (max-width: 480px) {
+      h1 { font-size: 1.3rem; }
+      .tiles-container { gap: 0.5rem; padding: 0.5rem; }
+      .tile { padding: 0.4rem 0.6rem; font-size: 0.85rem; min-width: 60px; }
+      .category { min-height: 150px; }
+      #uploadSection label, #uploadSection input, #uploadSection button {
+        font-size: 0.9rem; /* Slightly smaller text in upload section */
+      }
+      #categoriesEditor input[type="text"] {
+        width: 60px !important; /* Adjust specific input widths */
+      }
+      #categoriesEditor input[type="text"][data-labelidx] {
+        width: calc(100% - 75px) !important; /* Adjust label input width */
+      }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <h1>Sort the Words by Spelling Pattern</h1>
+
+  <div id="uploadSection">
+    <label for="wordListInput"><strong>Upload Word List (.json, .csv, or .txt):</strong></label>
+    <input type="file" id="wordListInput" accept=".json,.csv,.txt" style="margin-bottom: 0.5rem; display: block;">
+    <button id="loadExampleBtn" type="button" class="reset-btn">Load Example</button>
+    <br><br>
+    <label><strong>Edit Spelling Patterns (Categories):</strong></label>
+    <div id="categoriesEditor" style="margin-top:0.5rem;">
+        </div>
+    <button id="startGameBtn" class="action-btn">Start Game</button>
+  </div>
+
+  <div class="progress-tracker" id="progressTracker" aria-live="polite">0/0 words sorted</div>
+  <div class="button-group"> <button id="resetButton" class="reset-btn" aria-label="Reset game">Reset Game</button>
+      <button id="generateShareLinkBtn" class="action-btn" aria-label="Generate sharable link" style="display: none;">Get Share Link</button>
+  </div>
+  <div id="shareLinkContainer" style="display: none;">
+      <input type="text" id="shareLinkInput" readonly title="Sharable link">
+      <button id="copyLinkBtn" class="action-btn" title="Copy link to clipboard">Copy</button>
+  </div>
+
+  <div class="tiles-container" id="tilesContainer" role="list" aria-label="Word tiles to sort">
+    </div>
+  <div class="categories-container" id="categoriesContainer">
+    </div>
+
+  <div class="message-area" id="messageArea" aria-live="assertive"></div>
+
+<script>
+  // --- Example/default data ---
+  const exampleData = {
+    categories: [
+      { key: "j_start", label: "Starts with 'j'" },
+      { key: "dge_end", label: "Ends with 'dge'" },
+      { key: "g_soft", label: "Soft 'g' (before e, i, y)" }
+    ],
+    words: [
+      { word: "Jump", categoryKey: "j_start" }, { word: "Jam", categoryKey: "j_start" },
+      { word: "Judge", categoryKey: "dge_end" }, { word: "Juice", categoryKey: "j_start" },
+      { word: "Bridge", categoryKey: "dge_end" }, { word: "Barge", categoryKey: "g_soft" },
+      { word: "Large", categoryKey: "g_soft" }, { word: "Nudge", categoryKey: "dge_end" },
+      { word: "Fudge", categoryKey: "dge_end" }, { word: "Gym", categoryKey: "g_soft" },
+      { word: "Gin", categoryKey: "g_soft" }, { word: "Giant", categoryKey: "g_soft" },
+      { word: "Badge", categoryKey: "dge_end" }, { word: "Jelly", categoryKey: "j_start" }
+    ]
+  };
+  let gameData = JSON.parse(JSON.stringify(exampleData)); // Deep copy for initial game state
+
+  // --- DOM elements ---
+  const tilesContainer = document.getElementById('tilesContainer');
+  const categoriesContainer = document.getElementById('categoriesContainer');
+  const messageArea = document.getElementById('messageArea');
+  const progressTracker = document.getElementById('progressTracker');
+  const resetButton = document.getElementById('resetButton');
+  const uploadSection = document.getElementById('uploadSection');
+  const wordListInput = document.getElementById('wordListInput');
+  const categoriesEditor = document.getElementById('categoriesEditor');
+  const startGameBtn = document.getElementById('startGameBtn');
+  const loadExampleBtn = document.getElementById('loadExampleBtn');
+  const generateShareLinkBtn = document.getElementById('generateShareLinkBtn');
+  const shareLinkContainer = document.getElementById('shareLinkContainer');
+  const shareLinkInput = document.getElementById('shareLinkInput');
+  const copyLinkBtn = document.getElementById('copyLinkBtn');
+
+
+  // --- URL Data Handling & Initial Load ---
+  function loadGameFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    const encodedData = params.get('gamedata');
+
+    if (encodedData) {
+        console.log("https://www.merriam-webster.com/dictionary/load Found 'gamedata' parameter.");
+        try {
+            // 1. URI Decode the parameter value
+            const base64FromURL = decodeURIComponent(encodedData);
+            // 2. Base64 decode to get the compressed binary string
+            const compressedBinaryString = atob(base64FromURL);
+            // 3. Decompress using pako
+            // pako.inflate takes Uint8Array or binary string.
+            // If it's a binary string, it handles conversion internally.
+            const decompressedString = pako.inflate(compressedBinaryString, { to: 'string' });
+            // 4. Parse the JSON string
+            const loadedGameData = JSON.parse(decompressedString);
+            
+            console.log("https://www.merriam-webster.com/dictionary/load Decoded and parsed data:", loadedGameData);
+
+            if (loadedGameData && Array.isArray(loadedGameData.categories) && Array.isArray(loadedGameData.words)) {
+                gameData = loadedGameData;
+                uploadSection.dataset.uploadedWords = JSON.stringify(gameData.words);
+                uploadSection.dataset.editedCats = JSON.stringify(gameData.categories);
+                initializeGame();
+                uploadSection.style.display = 'none';
+                resetButton.style.display = 'inline-block';
+                progressTracker.style.display = 'block';
+                generateShareLinkBtn.style.display = 'inline-block';
+                shareLinkContainer.style.display = 'none';
+                showMessage("Game loaded from shared link!", "success", 3000);
+                return true;
+            } else {
+                console.error("https://www.merriam-webster.com/dictionary/load Invalid data structure in URL parameter.");
+                showMessage("Error: Invalid data structure in shared link.", "error");
+            }
+        } catch (error) {
+            console.error("https://www.merriam-webster.com/dictionary/load Error decoding or parsing data from URL:", error);
+            showMessage("Error: Could not load game from shared link. " + error.message, "error");
+        }
+    }
+    return false;
+  }
+
+
+  // --- Upload & parse functions ---
+  wordListInput.addEventListener('change', async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    console.log("[File Input] File selected:", file.name, "Type:", file.type);
+    shareLinkContainer.style.display = 'none';
+
+    try {
+        const text = await file.text();
+        console.log("[File Input] File content read. Length:", text.length);
+        let parsedWords = [];
+        let uniqueCategoryKeys = new Set();
+
+        if (file.name.endsWith('.json') || file.type === 'application/json') {
+            console.log("[File Input] Detected JSON file.");
+            try {
+                const jsonData = JSON.parse(text);
+                if (Array.isArray(jsonData)) {
+                    jsonData.forEach(item => {
+                        if (item && typeof item.word === 'string' && typeof item.categoryKey === 'string') {
+                            parsedWords.push({ word: item.word.trim(), categoryKey: item.categoryKey.trim() });
+                            uniqueCategoryKeys.add(item.categoryKey.trim());
+                        } else {
+                            console.warn("[File Input] Skipping invalid item in JSON array:", item);
+                        }
+                    });
+                } else {
+                    throw new Error("JSON data is not an array.");
+                }
+            } catch (jsonError) {
+                console.error("[File Input] Error parsing JSON:", jsonError);
+                showMessage("Error parsing JSON file: " + jsonError.message, "error");
+                wordListInput.value = ''; return;
+            }
+        } else {
+            console.log("[File Input] Detected TXT/CSV file.");
+            const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+            lines.forEach(line => {
+                const parts = line.split(',');
+                if (parts.length >= 2) {
+                    const word = parts[0].trim();
+                    const categoryKey = parts[1].trim();
+                    if (word && categoryKey) {
+                        parsedWords.push({ word, categoryKey });
+                        uniqueCategoryKeys.add(categoryKey);
+                    }
+                } else if (parts.length === 1 && parts[0].trim()) {
+                    console.warn(`[File Input - TXT/CSV] Skipping line: ${line}`);
+                }
+            });
+        }
+
+        console.log("[File Input] Final parsed words (first 5):", JSON.parse(JSON.stringify(parsedWords)).slice(0,5));
+        console.log("[File Input] Final unique keys:", Array.from(uniqueCategoryKeys));
+
+        if (parsedWords.length === 0) {
+            const fileTypeMsg = (file.name.endsWith('.json') || file.type === 'application/json') ? "JSON" : "TXT/CSV";
+            showMessage(text.trim().length > 0 ? `No valid words found in ${fileTypeMsg}. Check format.` : `Uploaded ${fileTypeMsg} is empty.`, "error", 6000);
+            wordListInput.value = ''; return;
+        }
+
+        const parsedCategories = Array.from(uniqueCategoryKeys).map(key => ({ key, label: key }));
+        renderCategoriesEditor(parsedCategories);
+        uploadSection.dataset.uploadedWords = JSON.stringify(parsedWords);
+        showMessage("Word list uploaded. Edit categories and click 'Start Game'.", "success", 4000);
+
+    } catch (error) {
+        console.error("[File Input] General error processing file:", error);
+        showMessage("Error processing file. See console.", "error");
+        wordListInput.value = '';
+    }
+  });
+
+  loadExampleBtn.addEventListener('click', function() {
+    console.log("[Load Example] Loading example data.");
+    shareLinkContainer.style.display = 'none';
+    gameData = JSON.parse(JSON.stringify(exampleData));
+    renderCategoriesEditor(gameData.categories);
+    uploadSection.dataset.uploadedWords = JSON.stringify(gameData.words);
+    showMessage("Example list loaded. Click 'Start Game' or edit.", "success");
+  });
+
+  function renderCategoriesEditor(cats) {
+    console.log("[renderCategoriesEditor] Rendering categories (first 5):", JSON.parse(JSON.stringify(cats)).slice(0,5));
+    categoriesEditor.innerHTML = '';
+    if (!cats || cats.length === 0) {
+        console.log("[renderCategoriesEditor] No categories to render.");
+    }
+    cats.forEach((cat, idx) => {
+      const wrap = document.createElement('div');
+      const keyInput = document.createElement('input');
+      keyInput.type = 'text';
+      keyInput.dataset.catkeyOriginal = cat.key;
+      keyInput.value = cat.key;
+      keyInput.readOnly = true;
+      keyInput.style.width = "100px";
+      keyInput.style.fontWeight = "bold";
+      keyInput.style.marginRight = "0.5rem";
+      keyInput.title = "Category Key (fixed identifier)";
+      const labelInput = document.createElement('input');
+      labelInput.type = 'text';
+      labelInput.dataset.labelidx = idx;
+      labelInput.value = cat.label;
+      labelInput.style.flexGrow = "1";
+      labelInput.title = "Category Display Name (editable)";
+      wrap.appendChild(keyInput);
+      wrap.appendChild(labelInput);
+      categoriesEditor.appendChild(wrap);
+    });
+    uploadSection.dataset.editedCats = JSON.stringify(cats);
+    console.log("[renderCategoriesEditor] Editor updated. dataset.editedCats (first 100 chars):", uploadSection.dataset.editedCats.substring(0,100)+"...");
+  }
+
+  startGameBtn.addEventListener('click', function() {
+    console.log("[startGameBtn] Clicked.");
+    shareLinkContainer.style.display = 'none';
+    const finalCategories = [];
+    document.querySelectorAll('#categoriesEditor > div').forEach(wrapDiv => {
+        const keyInput = wrapDiv.querySelector('input[data-catkey-original]');
+        const labelInput = wrapDiv.querySelector('input[data-labelidx]');
+        if (keyInput && labelInput) {
+            finalCategories.push({ key: keyInput.value, label: labelInput.value.trim() || keyInput.value });
+        }
+    });
+
+    let finalWords;
+    try {
+      const wordsDataString = uploadSection.dataset.uploadedWords || JSON.stringify(exampleData.words);
+      finalWords = JSON.parse(wordsDataString);
+    } catch (error) {
+      console.error("[startGameBtn] Error parsing words data:", error);
+      finalWords = JSON.parse(JSON.stringify(exampleData.words));
+      showMessage("Error loading word data. Using example.", "error");
+    }
+
+    const categoryKeysInUse = new Set(finalCategories.map(c => c.key));
+    finalWords = finalWords.filter(word => {
+        if (categoryKeysInUse.has(word.categoryKey)) return true;
+        console.warn(`[startGameBtn] Excluding word "${word.word}" (key: "${word.categoryKey}")`);
+        return false;
+    });
+
+    if (finalCategories.length === 0 || finalWords.length === 0) {
+        showMessage(finalCategories.length === 0 ? "No categories defined." : "No words for categories.", "error");
+        return;
+    }
+
+    gameData = { categories: finalCategories, words: finalWords };
+    console.log("[startGameBtn] Final gameData (first 5 words/cats):", {cats: gameData.categories.slice(0,5), words: gameData.words.slice(0,5)});
+    initializeGame();
+    showMessage("Game started!", "success");
+    uploadSection.style.display = 'none';
+    resetButton.style.display = 'inline-block';
+    progressTracker.style.display = 'block';
+    generateShareLinkBtn.style.display = 'inline-block';
+  });
+
+  // --- Share Link Generation ---
+  generateShareLinkBtn.addEventListener('click', function() {
+    if (!gameData || !gameData.words || gameData.words.length === 0) {
+        showMessage("No game data to share. Start a game first.", "error");
+        return;
+    }
+    try {
+        const gameDataString = JSON.stringify(gameData);
+        // 1. Compress the JSON string
+        // pako.deflate returns a Uint8Array. We need to convert it to a binary string for btoa.
+        const compressedUint8Array = pako.deflate(gameDataString);
+        let compressedBinaryString = '';
+        for (let i = 0; i < compressedUint8Array.length; i++) {
+            compressedBinaryString += String.fromCharCode(compressedUint8Array[i]);
+        }
+        
+        // 2. Base64 encode the compressed binary string
+        const base64Encoded = btoa(compressedBinaryString);
+        // 3. URI encode the Base64 string to make it safe for URL query parameters
+        const encodedDataForURL = encodeURIComponent(base64Encoded);
+
+        const timestamp = Date.now(); // Cache-busting timestamp
+        const shareURL = `${window.location.origin}${window.location.pathname}?gamedata=${encodedDataForURL}&v=${timestamp}`;
+
+        shareLinkInput.value = shareURL;
+        shareLinkContainer.style.display = 'flex';
+        shareLinkInput.focus();
+        shareLinkInput.select();
+        showMessage("Sharable link generated below!", "success");
+        console.log("[Share Link] Generated URL:", shareURL);
+    } catch (error) {
+        console.error("[Share Link] Error generating share link:", error);
+        showMessage("Could not generate share link: " + error.message, "error");
+    }
+  });
+
+  copyLinkBtn.addEventListener('click', function() {
+    if (shareLinkInput.value) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(shareLinkInput.value)
+                .then(() => showMessage("Link copied to clipboard!", "success", 2000))
+                .catch(err => {
+                    console.error("[Copy Link] navigator.clipboard error:", err);
+                    try {
+                        shareLinkInput.select();
+                        document.execCommand('copy');
+                        showMessage("Link copied (fallback method)!", "success", 2000);
+                    } catch (execErr) {
+                        console.error("[Copy Link] document.execCommand error:", execErr);
+                        showMessage("Failed to copy link automatically. Please copy manually.", "error");
+                    }
+                });
+        } else {
+            try {
+                shareLinkInput.select();
+                document.execCommand('copy');
+                showMessage("Link copied (fallback method)!", "success", 2000);
+            } catch (execErr) {
+                console.error("[Copy Link] document.execCommand error (no navigator.clipboard):", execErr);
+                showMessage("Failed to copy link automatically. Please copy manually.", "error");
+            }
+        }
+    }
+  });
+
+
+  // =================== GAME LOGIC (Main game mechanics) ======================
+  let draggedTile = null;
+  let originalTileContainer = null;
+  let touchClone = null;
+  let touchStartX, touchStartY;
+
+  function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function showMessage(text, type = 'info', duration = 3000) {
+    messageArea.textContent = text;
+    messageArea.className = 'message-area show';
+    if (type === 'success') messageArea.classList.add('success');
+    else if (type === 'error') messageArea.classList.add('error');
+    setTimeout(() => {
+      messageArea.classList.remove('show');
+      setTimeout(() => { messageArea.classList.remove('success', 'error'); }, 500);
+    }, duration);
+  }
+
+  function updateProgress() {
+    const sortedTilesCount = document.querySelectorAll('.category .tile').length;
+    const totalWords = gameData.words.length;
+    progressTracker.textContent = `${sortedTilesCount}/${totalWords} words sorted`;
+  }
+
+  function initializeGame() {
+    console.log("[initializeGame] Initializing with data (first 5 words/cats):", {categories: JSON.parse(JSON.stringify(gameData.categories)).slice(0,5), words: JSON.parse(JSON.stringify(gameData.words)).slice(0,5)});
+    createCategories();
+    createTiles();
+    updateProgress();
+  }
+
+  function createCategories() {
+    categoriesContainer.innerHTML = '';
+    gameData.categories.forEach(cat => {
+      const categoryDiv = document.createElement('div');
+      categoryDiv.classList.add('category');
+      categoryDiv.dataset.categoryKey = cat.key;
+      categoryDiv.setAttribute('role', 'listbox');
+      categoryDiv.setAttribute('aria-label', `Category: ${cat.label}`);
+      categoryDiv.tabIndex = 0;
+      const titleDiv = document.createElement('div');
+      titleDiv.classList.add('category-title');
+      titleDiv.textContent = cat.label;
+      categoryDiv.appendChild(titleDiv);
+      categoryDiv.addEventListener('dragover', handleDragOver);
+      categoryDiv.addEventListener('dragenter', handleDragEnter);
+      categoryDiv.addEventListener('dragleave', handleDragLeave);
+      categoryDiv.addEventListener('drop', handleDrop);
+      categoriesContainer.appendChild(categoryDiv);
+    });
+  }
+
+  function createTiles() {
+    tilesContainer.innerHTML = '';
+    const shuffledWords = shuffle([...gameData.words]);
+    shuffledWords.forEach(wordObj => {
+      const tileDiv = document.createElement('div');
+      tileDiv.classList.add('tile');
+      tileDiv.textContent = wordObj.word;
+      tileDiv.draggable = true;
+      tileDiv.dataset.categoryKey = wordObj.categoryKey;
+      tileDiv.setAttribute('role', 'listitem');
+      tileDiv.tabIndex = 0;
+      tileDiv.addEventListener('dragstart', handleDragStart);
+      tileDiv.addEventListener('dragend', handleDragEnd);
+      tileDiv.addEventListener('touchstart', handleTouchStart, { passive: false });
+      tileDiv.addEventListener('touchmove', handleTouchMove, { passive: false });
+      tileDiv.addEventListener('touchend', handleTouchEnd);
+      tileDiv.addEventListener('keydown', handleTileKeydown);
+      tilesContainer.appendChild(tileDiv);
+    });
+  }
+  function handleTileKeydown(event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        const firstCategory = categoriesContainer.querySelector('.category');
+        if (firstCategory && event.target.classList.contains('tile') && !event.target.classList.contains('sorted')) {
+            const tile = event.target;
+            const categoryKey = firstCategory.dataset.categoryKey;
+            const tileKey = tile.dataset.categoryKey;
+            if (categoryKey === tileKey) {
+                firstCategory.appendChild(tile);
+                tile.draggable = false;
+                tile.classList.add('sorted');
+                tile.removeEventListener('keydown', handleTileKeydown);
+                showMessage(`Correct! '${tile.textContent}' sorted.`, 'success');
+                updateProgress();
+                checkWinCondition();
+            } else {
+                showMessage(`Oops! '${tile.textContent}' doesn't go in '${gameData.categories.find(c => c.key === categoryKey).label}'.`, 'error');
+            }
+        }
+    }
+  }
+  function handleDragStart(event) {
+    if (event.target.classList.contains('sorted')) { event.preventDefault(); return; }
+    draggedTile = event.target;
+    originalTileContainer = draggedTile.parentElement;
+    event.dataTransfer.setData('text/plain', draggedTile.textContent);
+    event.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => { if(draggedTile) draggedTile.classList.add('dragging'); }, 0);
+  }
+  function handleDragEnd() {
+    if (draggedTile) draggedTile.classList.remove('dragging');
+    document.querySelectorAll('.category.dragover').forEach(cat => cat.classList.remove('dragover'));
+    draggedTile = null; originalTileContainer = null;
+  }
+  function handleDragOver(event) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }
+  function handleDragEnter(event) {
+    event.preventDefault();
+    const categoryElement = event.target.closest('.category');
+    if (categoryElement && draggedTile && !draggedTile.classList.contains('sorted')) {
+      categoryElement.classList.add('dragover');
+    }
+  }
+  function handleDragLeave(event) {
+    const categoryElement = event.target.closest('.category');
+    if (categoryElement && (!event.relatedTarget || !categoryElement.contains(event.relatedTarget))) {
+      categoryElement.classList.remove('dragover');
+    }
+  }
+  function handleDrop(event) {
+    event.preventDefault();
+    const categoryElement = event.target.closest('.category');
+    if (categoryElement && draggedTile && !draggedTile.classList.contains('sorted')) {
+      categoryElement.classList.remove('dragover');
+      const droppedCategoryKey = categoryElement.dataset.categoryKey;
+      const tileCorrectCategoryKey = draggedTile.dataset.categoryKey;
+      if (droppedCategoryKey === tileCorrectCategoryKey) {
+        categoryElement.appendChild(draggedTile);
+        draggedTile.draggable = false;
+        draggedTile.classList.remove('dragging');
+        draggedTile.classList.add('sorted');
+        draggedTile.removeEventListener('keydown', handleTileKeydown);
+        showMessage(`Correct! '${draggedTile.textContent}' belongs here.`, 'success');
+        updateProgress(); checkWinCondition();
+      } else {
+        showMessage(`Oops! '${draggedTile.textContent}' doesn't go in '${gameData.categories.find(c => c.key === droppedCategoryKey).label}'. Try again!`, 'error');
+        if (originalTileContainer && (originalTileContainer.id === 'tilesContainer' || originalTileContainer.classList.contains('category'))) {
+            originalTileContainer.appendChild(draggedTile);
+        }
+      }
+    }
+    if (draggedTile) draggedTile.classList.remove('dragging');
+    draggedTile = null; originalTileContainer = null;
+  }
+  function handleTouchStart(event) {
+    const targetTile = event.target.closest('.tile');
+    if (!targetTile || targetTile.classList.contains('sorted')) return;
+    event.preventDefault();
+    draggedTile = targetTile;
+    originalTileContainer = draggedTile.parentElement;
+    touchClone = draggedTile.cloneNode(true);
+    touchClone.classList.add('dragging');
+    touchClone.style.position = 'absolute';
+    touchClone.style.zIndex = '1000';
+    touchClone.style.pointerEvents = 'none';
+    document.body.appendChild(touchClone);
+    const touch = event.touches[0];
+    touchStartX = touch.clientX; touchStartY = touch.clientY;
+    const rect = draggedTile.getBoundingClientRect();
+    touchClone.style.width = `${rect.width}px`; touchClone.style.height = `${rect.height}px`;
+    touchClone.style.left = `${touch.clientX - rect.width / 2}px`;
+    touchClone.style.top = `${touch.clientY - rect.height / 2}px`;
+    draggedTile.style.opacity = '0.4';
+  }
+  function handleTouchMove(event) {
+    if (!draggedTile || !touchClone) return;
+    event.preventDefault();
+    const touch = event.touches[0];
+    touchClone.style.left = `${touch.clientX - touchClone.offsetWidth / 2}px`;
+    touchClone.style.top = `${touch.clientY - touchClone.offsetHeight / 2}px`;
+    touchClone.style.display = 'none';
+    const elementUnderneath = document.elementFromPoint(touch.clientX, touch.clientY);
+    touchClone.style.display = '';
+    document.querySelectorAll('.category.dragover').forEach(cat => cat.classList.remove('dragover'));
+    const categoryElement = elementUnderneath ? elementUnderneath.closest('.category') : null;
+    if (categoryElement) categoryElement.classList.add('dragover');
+  }
+  function handleTouchEnd(event) {
+    if (!draggedTile || !touchClone) return;
+    event.preventDefault();
+    draggedTile.style.opacity = '1';
+    if (touchClone.parentNode === document.body) document.body.removeChild(touchClone);
+    touchClone = null;
+    const touch = event.changedTouches[0];
+    const elementUnderneath = document.elementFromPoint(touch.clientX, touch.clientY);
+    const categoryElement = elementUnderneath ? elementUnderneath.closest('.category') : null;
+    document.querySelectorAll('.category.dragover').forEach(cat => cat.classList.remove('dragover'));
+    if (categoryElement) {
+      const droppedCategoryKey = categoryElement.dataset.categoryKey;
+      const tileCorrectCategoryKey = draggedTile.dataset.categoryKey;
+      if (droppedCategoryKey === tileCorrectCategoryKey) {
+        categoryElement.appendChild(draggedTile);
+        draggedTile.classList.add('sorted');
+        showMessage(`Correct! '${draggedTile.textContent}' sorted.`, 'success');
+        updateProgress(); checkWinCondition();
+      } else {
+        showMessage(`Incorrect. '${draggedTile.textContent}' doesn't fit here.`, 'error');
+        if (originalTileContainer) originalTileContainer.appendChild(draggedTile);
+      }
+    } else {
+      if (originalTileContainer) originalTileContainer.appendChild(draggedTile);
+    }
+    draggedTile = null; originalTileContainer = null;
+  }
+  function checkWinCondition() {
+    const totalWords = gameData.words.length;
+    if (totalWords === 0 && document.querySelectorAll('.tile').length === 0) return;
+    const sortedTiles = document.querySelectorAll('.category .tile');
+    if (totalWords > 0 && sortedTiles.length === totalWords) {
+      let allCorrectlyPlaced = true;
+      sortedTiles.forEach(tile => {
+        if (tile.dataset.categoryKey !== tile.parentElement.dataset.categoryKey) allCorrectlyPlaced = false;
+      });
+      if (allCorrectlyPlaced) showMessage('Congratulations! All words sorted correctly!', 'success', 5000);
+      else showMessage('All words in categories, but some misplaced. Review.', 'error', 4000);
+    }
+  }
+  resetButton.addEventListener('click', () => {
+    console.log("[Reset Button] Clicked. Resetting game to configuration stage.");
+    if (window.history.pushState) {
+        const newURL = window.location.origin + window.location.pathname;
+        window.history.pushState({path:newURL}, '', newURL);
+    }
+
+    uploadSection.style.display = 'block';
+    resetButton.style.display = 'none';
+    progressTracker.style.display = 'none';
+    generateShareLinkBtn.style.display = 'none';
+    shareLinkContainer.style.display = 'none';
+    tilesContainer.innerHTML = '';
+    categoriesContainer.innerHTML = '';
+    progressTracker.textContent = '0/0 words sorted';
+    gameData = JSON.parse(JSON.stringify(exampleData));
+    renderCategoriesEditor(gameData.categories);
+    uploadSection.dataset.uploadedWords = JSON.stringify(gameData.words);
+    wordListInput.value = '';
+    showMessage("Game reset. Configure and start a new game.", "info");
+  });
+
+  // --- Initial Game UI State & URL Check ---
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log("[DOM Loaded] Checking for URL game data...");
+    const loadedFromURL = loadGameFromURL();
+
+    if (!loadedFromURL) {
+        console.log("[DOM Loaded] No URL data, setting up example for configuration.");
+        renderCategoriesEditor(exampleData.categories);
+        uploadSection.dataset.uploadedWords = JSON.stringify(exampleData.words);
+        resetButton.style.display = 'none';
+        progressTracker.style.display = 'none';
+        generateShareLinkBtn.style.display = 'none';
+        shareLinkContainer.style.display = 'none';
+    }
+    console.log("[DOM Loaded] Initial setup complete.");
+  });
+
+</script>
+</body>
+</html>
